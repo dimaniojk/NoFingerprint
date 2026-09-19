@@ -38,7 +38,7 @@ Until this fork publishes GitHub releases, integrity/update checks are expected 
 
 ## Resource packs
 
-- URL allow/block: `util/LocalAddressUtil.java` + `HttpUtilMixin` + `detection/TrackPackDetector.java`.
+- URL allow/block: `util/PrivateAddressClassifier.java` + `util/RedirectPolicy.java` + `HttpUtilMixin` + `detection/TrackPackDetector.java`. Local/private classification is explicit CIDR (including CGNAT and IPv6 ULA), not `InetAddress.isSiteLocalAddress()`.
 - Forced-pack bypass wraps pack resources so language files can stay loaded while textures/shaders are stripped (`protection/LangOnlyPackResources.java`, `PackStripHandler.java`, `PackStripOverlay.java`).
 - Shader override stripping for non-whitelisted mods: `protection/ShaderStripTracker.java` and pack mixins.
 - Cache isolation is UUID-based, not username-based. Switching accounts without isolation enabled still shares the vanilla cache.
@@ -81,18 +81,40 @@ Mixin unique members were renamed `opsec$…` → `nofingerprint$…`. Accessor 
 4. **Integrity check is advisory** — mismatch shows `TamperWarningScreen` and can be permanently dismissed (`tamperWarningDismissed` in settings).
 5. **Azure client ID rotation** in token refresh may be rejected by Microsoft or may not match the client that issued the refresh token.
 6. **Recursive cache delete** is scoped to game-dir cache folders, but a path-resolution bug there would be destructive. The current code normalizes against `Minecraft.gameDirectory`.
-7. **Fabric `conflicts` with ExploitPreventer** still exists in `fabric.mod.json` while runtime code also implements compatibility mode. Loader may warn even though overlap is handled in settings.
-8. **Temporary upstream icon** is not a vulnerability, but it can impersonate OpSec visually in Mod Menu.
+7. **Fabric `conflicts` with ExploitPreventer** existed in `fabric.mod.json` at fork time while runtime also implemented a blanket compatibility stand-down. **RESOLVED in 1.1.7.1-nofingerprint.2:** `conflicts` was removed; stand-down is limited to overlapping HTTP and translation hooks (`CompatibilityPolicy`).
+8. **Mod Menu icon** — the upstream OpSec “OP” mark was replaced in 1.1.7.1-nofingerprint.2-beta.1 with an original geometric asset. It is not a finished brand logo.
 
 No command execution / `ProcessBuilder` / native payload downloaders were found beyond opening a release URL with `Util.getPlatform().openUri`.
 
 ## Recommended future changes
 
-1. Replace the OpSec "OP" icon with original NoFingerprint branding.
+1. Commission designed NoFingerprint branding if the current geometric icon is too plain for store pages.
 2. Encrypt or OS-keychain-protect `nofingerprint-accounts.json`, or stop persisting access tokens.
 3. Publish signed GitHub releases so `JarIntegrityChecker` and `UpdateChecker` have a real trust anchor. Pin the expected repo and consider minisign/GPG for artifacts.
 4. Revisit whether the account manager belongs in a privacy mod; it expands the secret surface significantly.
 5. Add a one-time UI notice when migrating from `opsec.json` / `opsec-accounts.json`.
 6. After official hosting exists, remove any remaining temptation to send users to aurickk/OpSec for "updates".
-7. Decide whether ExploitPreventer should `conflicts` or coexist; the metadata and runtime behavior currently disagree in tone.
+7. Decide whether ExploitPreventer should `conflicts` or coexist; the metadata and runtime behavior currently disagree in tone. **Done in nofingerprint.2:** coexist, with a documented capability matrix.
 8. Keep Stonecutter multi-version support; do not collapse mixins into a single-version rewrite before a behavior audit.
+
+## Hardening Phase 1 (1.1.7.1-nofingerprint.2)
+
+This pass changed protection logic. Historical findings above were marked rather than deleted.
+
+### ExploitPreventer coexistence — RESOLVED
+
+Blanket `!EXPLOIT_PREVENTER_LOADED` gates were replaced with `CompatibilityPolicy`. Kept under NoFingerprint when EP is present: brand spoof, channel filter, known-pack filter, pack-strip, shader strip, pack-cache isolation. Stood down: local/private pack URL `HttpUtil` wrap (same `getInputStream` WrapOperation) and translation/keybind component wraps (same `Language.getOrDefault` path). Dual-install URL blocking therefore uses EP's weaker classifier (no CGNAT/ULA/308). Settings UI greys only those two controls and explains the overlap.
+
+### Local/private address classification — RESOLVED (NF path)
+
+`PrivateAddressClassifier` no longer relies on `InetAddress.isSiteLocalAddress()`. Blocked IPv4: `0.0.0.0/8`, `10/8`, `100.64.0.0/10` (CGNAT), `127/8`, `169.254/16`, `172.16.0.0/12`, `192.168.0.0/16`, `224.0.0.0/4` multicast, `240.0.0.0/4` reserved. Blocked IPv6: `::`, `::1`, `fc00::/7` ULA, `fe80::/10` link-local, `ff00::/8` multicast. IPv4-mapped (`::ffff:x.x.x.x`) and deprecated IPv4-compatible IPv6 are unwrapped and classified as IPv4. A hostname is unsafe if **any** `getAllByName` address is blocked; IPv6 answers are not ignored.
+
+### HTTP redirects — RESOLVED (308); DNS TOCTOU — PARTIALLY MITIGATED
+
+Followed: 300, 301, 302, 303, 305, 307, **308**. Not followed: 304, 306, non-HTTP(S) Location. Each hop is classified before `openConnection`. Depth cap 20; repeated hop URLs throw. LAN skip still applies when the connected game server itself is local/private.
+
+DNS TOCTOU is **PARTIALLY MITIGATED**, not FIXED. Reason: Minecraft resource-pack downloads use JDK `HttpURLConnection`. The mixin can resolve and classify the host before `openConnection`, but `HttpURLConnection` may resolve the same hostname again at connect. Pinning the validated `InetAddress` onto the TCP connection would require replacing that stack. Do **not** claim DNS-rebinding protection.
+
+### Minecraft 1.20.1 local URL block — RESOLVED
+
+`HttpUtil.downloadFile` does not exist on 1.20.1. The 1.20.1/1.20.2 path is `HttpUtil.method_15303` (Mojmap/intermediary for the `downloadTo` lambda), which does call `HttpURLConnection.getInputStream()`. The mixin targets that method instead of stubbing. `MC_VERSION_HAS_BLOCK_LOCAL_URLS` is true on all supported versions.

@@ -2,6 +2,7 @@ package io.github.dimaniojk.nofingerprint.mixin.client;
 
 //? if >=1.20.5 {
 import io.github.dimaniojk.nofingerprint.config.NoFingerprintConfig;
+import io.github.dimaniojk.nofingerprint.debug.ProbeDiagnostics;
 import io.github.dimaniojk.nofingerprint.tracking.ModRegistry;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.client.multiplayer.KnownPacksManager;
@@ -38,6 +39,13 @@ public class KnownPacksManagerMixin {
                 filtered.add(pack);
             }
         }
+        ProbeDiagnostics.log(
+            "known-packs hookPresent={} vanillaMode={} original={} filtered={}",
+            ModRegistry.isKnownPacksHookPresent(),
+            vanillaMode,
+            original.size(),
+            filtered.size()
+        );
         return filtered;
     }
 }

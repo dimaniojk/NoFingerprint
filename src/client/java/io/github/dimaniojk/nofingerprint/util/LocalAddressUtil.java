@@ -1,17 +1,12 @@
 package io.github.dimaniojk.nofingerprint.util;
 
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 /**
- * Local address detection and server address state, aligned with ExploitPreventer's
- * Utils.isLocalAddress() and GlobalState.serverAddress approach.
+ * Local address detection and connected-server state for resource-pack URL blocking.
  *
- * <p>Replaces the previous LocalUrlDetector (regex-based) and ServerAddressTracker
- * (volatile lifecycle) with a simpler DNS-resolution-based approach that catches
- * DNS rebinding attacks.
- *
- * @see <a href="https://github.com/NikOverflow/ExploitPreventer">ExploitPreventer</a>
+ * <p>Classification lives in {@link PrivateAddressClassifier} (explicit CIDR, ULA, CGNAT,
+ * mapped IPv6). This class only holds the connected game-server address and delegates.
  */
 public class LocalAddressUtil {
 
@@ -22,32 +17,12 @@ public class LocalAddressUtil {
     public static volatile String serverAddress = null;
 
     /**
-     * Checks if a hostname resolves to a local/private address.
-     * Uses DNS resolution via {@link InetAddress#getAllByName(String)} to resolve ALL addresses
-     * for a host (including multi-homed), catching DNS rebinding attacks.
+     * True if {@code host} resolves to any blocked (loopback / private / ULA / CGNAT /
+     * link-local / multicast / reserved) address.
      *
-     * <p>Checks four address categories:
-     * <ul>
-     *   <li>{@link InetAddress#isAnyLocalAddress()} - 0.0.0.0</li>
-     *   <li>{@link InetAddress#isLoopbackAddress()} - 127.x.x.x, ::1</li>
-     *   <li>{@link InetAddress#isSiteLocalAddress()} - 10.x, 172.16-31.x, 192.168.x</li>
-     *   <li>{@link InetAddress#isLinkLocalAddress()} - 169.254.x, fe80::</li>
-     * </ul>
-     *
-     * @param host the hostname to check
-     * @return true if any resolved address is local/private
-     * @throws UnknownHostException if the hostname cannot be resolved (propagated to caller)
+     * @throws UnknownHostException if the hostname cannot be resolved
      */
     public static boolean isLocalAddress(String host) throws UnknownHostException {
-        if (host == null) return false;
-        for (InetAddress address : InetAddress.getAllByName(host)) {
-            if (address.isAnyLocalAddress()
-                    || address.isLoopbackAddress()
-                    || address.isSiteLocalAddress()
-                    || address.isLinkLocalAddress()) {
-                return true;
-            }
-        }
-        return false;
+        return PrivateAddressClassifier.hostResolvesToBlocked(host);
     }
 }

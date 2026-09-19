@@ -3,7 +3,7 @@
 	"id": "nofingerprint",
 	"version": "${version}",
 	"name": "NoFingerprint",
-	"description": "A client-side Minecraft privacy mod focused on reducing client fingerprinting, tracking vectors, and unnecessary information disclosure to servers.",
+	"description": "Client-side Fabric privacy mod that reduces unnecessary client fingerprinting and information disclosure to Minecraft servers. Independently maintained GPL-3.0 fork of OpSec by aurickk. Public beta: not undetectable, not an anti-cheat bypass, and not a guarantee of anonymity.",
 	"authors": [
 		"dimaniojk"
 	],
@@ -35,9 +35,6 @@
 			"environment": "client"
 		}
 	],
-	"conflicts": {
-		"exploitpreventer": "*"
-	},
 	"breaks": {
 		"ichor": "*",
 		"labymod": "*",

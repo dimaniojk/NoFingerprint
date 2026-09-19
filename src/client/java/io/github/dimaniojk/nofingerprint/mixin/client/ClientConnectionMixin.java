@@ -2,6 +2,7 @@ package io.github.dimaniojk.nofingerprint.mixin.client;
 
 import io.github.dimaniojk.nofingerprint.NoFingerprint;
 import io.github.dimaniojk.nofingerprint.config.NoFingerprintConfig;
+import io.github.dimaniojk.nofingerprint.debug.ProbeDiagnostics;
 import io.github.dimaniojk.nofingerprint.tracking.ModRegistry;
 import io.github.dimaniojk.nofingerprint.util.LocalAddressUtil;
 import io.netty.channel.Channel;
@@ -152,6 +153,7 @@ public class ClientConnectionMixin {
 
             if (config.getSettings().isVanillaMode()) {
                 NoFingerprint.LOGGER.debug("[NoFingerprint] VANILLA MODE (pipeline) - Blocking: {}", payloadId);
+                ProbeDiagnostics.log("blocked outbound channel {} (vanilla mode, pipeline)", payloadId);
                 promise.setSuccess();
                 return;
             }
@@ -176,6 +178,11 @@ public class ClientConnectionMixin {
                         
                         NoFingerprint.LOGGER.debug("[NoFingerprint] FABRIC MODE (pipeline) - Filtered channels: {} -> {}", 
                             registrationPayload.channels().size(), filtered.size());
+                        ProbeDiagnostics.log(
+                            "register filter (pipeline) original={} filtered={} dropped={}",
+                            registrationPayload.channels().size(),
+                            filtered.size(),
+                            registrationPayload.channels().size() - filtered.size());
                         
                         if (filtered.isEmpty()) {
                             promise.setSuccess();
@@ -201,6 +208,7 @@ public class ClientConnectionMixin {
                 }
 
                 NoFingerprint.LOGGER.debug("[NoFingerprint] FABRIC MODE (pipeline) - Blocking mod channel: {}", payloadId);
+                ProbeDiagnostics.log("blocked outbound channel {} (fabric mode, pipeline)", payloadId);
                 promise.setSuccess();
                 return;
             }
@@ -262,6 +270,7 @@ public class ClientConnectionMixin {
 
         if (config.getSettings().isVanillaMode()) {
             NoFingerprint.LOGGER.debug("[NoFingerprint] VANILLA MODE - Blocking: {}", channelId);
+            ProbeDiagnostics.log("blocked outbound channel {} (vanilla mode)", channelId);
             ci.cancel();
             return;
         }
@@ -276,6 +285,11 @@ public class ClientConnectionMixin {
 
                 NoFingerprint.LOGGER.debug("[NoFingerprint] FABRIC MODE - Filtered channels: {} -> {}",
                     originalChannels.size(), filteredChannels.size());
+                ProbeDiagnostics.log(
+                    "register filter original={} filtered={} dropped={}",
+                    originalChannels.size(),
+                    filteredChannels.size(),
+                    originalChannels.size() - filteredChannels.size());
 
                 ci.cancel();
 
@@ -305,6 +319,7 @@ public class ClientConnectionMixin {
             }
 
             NoFingerprint.LOGGER.debug("[NoFingerprint] FABRIC MODE - Blocking mod channel: {}", channelId);
+            ProbeDiagnostics.log("blocked outbound channel {} (fabric mode)", channelId);
             ci.cancel();
         }
         return;
@@ -353,6 +368,7 @@ public class ClientConnectionMixin {
         
         if (config.getSettings().isVanillaMode()) {
             NoFingerprint.LOGGER.debug("[NoFingerprint] VANILLA MODE - Blocking: {}", payloadId);
+            ProbeDiagnostics.log("blocked outbound channel {} (vanilla mode)", payloadId);
             ci.cancel();
             return;
         }
@@ -394,6 +410,7 @@ public class ClientConnectionMixin {
             }
 
             NoFingerprint.LOGGER.debug("[NoFingerprint] FABRIC MODE - Blocking mod channel: {}", payloadId);
+            ProbeDiagnostics.log("blocked outbound channel {} (fabric mode)", payloadId);
             ci.cancel();
             return;
         }
@@ -426,6 +443,11 @@ public class ClientConnectionMixin {
         
         NoFingerprint.LOGGER.debug("[NoFingerprint] FABRIC MODE - Filtered channels: {} -> {}", 
             originalChannels.size(), filteredChannels.size());
+        ProbeDiagnostics.log(
+            "register filter original={} filtered={} dropped={}",
+            originalChannels.size(),
+            filteredChannels.size(),
+            originalChannels.size() - filteredChannels.size());
         
         ci.cancel();
         

@@ -45,3 +45,27 @@ __pycache__/
 CLAUDE.md
 .planning/
 AGENTS.md
+
+# Probe harness
+tools/probe-server/node_modules/
+tools/probe-server/results/
+
+# Release binaries (checksums in release/SHA256SUMS.txt are tracked)
+release/*.jar
+
+# Secrets / local env
+.env
+.env.*
+*.pem
+id_rsa
+id_ed25519
+nofingerprint-accounts.json
+opsec-accounts.json
+
+# Local Minecraft instances
+.minecraft/
+# Release binaries
+release/*.jar
+
+# Probe server dependencies
+tools/probe-server/node_modules/

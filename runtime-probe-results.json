@@ -1,0 +1,667 @@
+{
+  "nofingerprint_version": "1.1.7.1-nofingerprint.2",
+  "generated_at": "2026-09-19T13:24:22Z",
+  "runs": [
+    {
+      "minecraft_version": "1.20.1",
+      "configuration": "self-test",
+      "host": "127.0.0.1",
+      "port": 25581,
+      "duration_ms": 5720,
+      "events": [
+        {
+          "t": 494,
+          "name": "connection",
+          "remote": "127.0.0.1"
+        },
+        {
+          "t": 511,
+          "name": "tcp_or_client_object",
+          "username": "HarnessBot",
+          "remote": "127.0.0.1"
+        },
+        {
+          "t": 511,
+          "name": "login",
+          "username": "HarnessBot",
+          "uuid": "cbb41d39-9a67-36f7-95fe-e8d24b6dbed7",
+          "protocol": 763
+        },
+        {
+          "t": 511,
+          "name": "playerJoin",
+          "username": "HarnessBot"
+        },
+        {
+          "t": 511,
+          "name": "play_probes_start",
+          "username": "HarnessBot"
+        },
+        {
+          "t": 1716,
+          "name": "resource_pack_sent",
+          "url": "http://127.0.0.1:40049/test.zip",
+          "ok": true,
+          "packet": "resource_pack_send"
+        },
+        {
+          "t": 2316,
+          "name": "resource_pack_308_sent",
+          "url": "http://127.0.0.1:40049/to-loopback-308"
+        },
+        {
+          "t": 5220,
+          "name": "end",
+          "username": "HarnessBot",
+          "reason": "nf-probe-complete"
+        }
+      ],
+      "disconnects": [
+        {
+          "username": "HarnessBot",
+          "reason": "nf-probe-complete",
+          "t_ms": 5220
+        }
+      ],
+      "probes": [
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "client_brand",
+          "observed": null,
+          "expected": "*",
+          "result": "INCONCLUSIVE",
+          "notes": "No minecraft:brand payload was received. Silence is not treated as PASS.",
+          "t_ms": 5218
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "custom_payload_channels",
+          "observed": {
+            "channels": [],
+            "payloads": []
+          },
+          "expected": "harness bot is not Fabric",
+          "result": "INCONCLUSIVE",
+          "notes": "No minecraft:register list observed (vanilla clients often send none).",
+          "t_ms": 5218
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "inbound_unknown_payload",
+          "observed": {
+            "disconnected": true,
+            "reason": "nf-probe-complete",
+            "sent": [
+              {
+                "channel": "nofingerprint_probe:unknown",
+                "ok": true,
+                "name": "custom_payload"
+              },
+              {
+                "channel": "fabric:registry/sync",
+                "ok": true,
+                "name": "custom_payload"
+              },
+              {
+                "channel": "fabric:s2c/not_a_real_packet",
+                "ok": true,
+                "name": "custom_payload"
+              },
+              {
+                "channel": "voicechat:secret",
+                "ok": true,
+                "name": "custom_payload"
+              }
+            ]
+          },
+          "expected": "NOT_SUPPORTED on <1.20.5 (no typed Fabric codec)",
+          "result": "NOT_SUPPORTED",
+          "notes": "Typed payload codecs do not exist on this protocol.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "known_packs",
+          "observed": [],
+          "expected": "NOT_SUPPORTED",
+          "result": "NOT_SUPPORTED",
+          "notes": "select_known_packs does not exist before Minecraft 1.20.5.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "resource_pack_local_url",
+          "observed": {
+            "tcpCount": 0,
+            "httpCount": 0,
+            "testZipGets": 0,
+            "privateGets": 0,
+            "packStatus": [],
+            "requests": []
+          },
+          "expected": "GET /test.zip (baseline Fabric/vanilla download)",
+          "result": "INCONCLUSIVE",
+          "notes": "GET count=0",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "resource_pack_status",
+          "observed": [],
+          "expected": "record only",
+          "result": "INCONCLUSIVE",
+          "notes": "No resource-pack status packet from the client.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "redirect_308",
+          "observed": {
+            "tcpCount": 0,
+            "privateGets": 0,
+            "chainGets": 0,
+            "redirect308": 0
+          },
+          "expected": "private target /private receives no GET; 308 hop classified",
+          "result": "INCONCLUSIVE",
+          "notes": "Initial pack URL for 308 is loopback in this harness, so a successful NF block may skip the redirect hop entirely. Unit tests cover RedirectPolicy; live 308-from-public remains limited by bindable addresses.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "translation_sign_echo",
+          "observed": [],
+          "expected": "n/a",
+          "result": "INCONCLUSIVE",
+          "notes": "No update_sign. Automated clients never close the editor; this probe needs a human or is INCONCLUSIVE.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "keybind_sign_echo",
+          "observed": [],
+          "expected": "document resolved vs raw key.jump / key.fake_mod.open_gui",
+          "result": "INCONCLUSIVE",
+          "notes": "Same observation path as translation (sign editor). Not scored without an echoed line.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "chat_signing",
+          "observed": {
+            "chatSession": [],
+            "chatMessages": []
+          },
+          "expected": "n/a",
+          "result": "INCONCLUSIVE",
+          "notes": "Offline-mode sessions usually have no Mojang profile key. Presence/absence of chat_session_update is recorded, not scored.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "cache_isolation",
+          "observed": null,
+          "expected": "Account B must not reuse Account A cache (second username \u2192 second GET)",
+          "result": "INCONCLUSIVE",
+          "notes": "Requires two sequential joins with different offline usernames against the same pack URL/hash. Use --cache-pair or connect twice.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "dns_toctou",
+          "observed": null,
+          "expected": "not claimed as fixed",
+          "result": "INCONCLUSIVE",
+          "notes": "HttpURLConnection may resolve twice. A safe deterministic rebind against the JVM was not constructed (would need a fake DNS for the Minecraft process). See SECURITY_AUDIT.md PARTIALLY MITIGATED.",
+          "t_ms": 5219
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "self-test",
+          "probe": "connection_lifecycle",
+          "observed": [
+            {
+              "t_ms": 511,
+              "name": "tcp_or_client_object",
+              "remote": "127.0.0.1"
+            },
+            {
+              "t_ms": 5220,
+              "name": "end",
+              "reason": "nf-probe-complete"
+            }
+          ],
+          "expected": "timestamps only",
+          "result": "PASS",
+          "notes": "Timing is collected, not obfuscated.",
+          "t_ms": 5219
+        }
+      ]
+    },
+    {
+      "minecraft_version": "1.21.11",
+      "configuration": "self-test",
+      "host": "127.0.0.1",
+      "port": 25582,
+      "duration_ms": 5866,
+      "events": [
+        {
+          "t": 572,
+          "name": "connection",
+          "remote": "127.0.0.1"
+        },
+        {
+          "t": 603,
+          "name": "tcp_or_client_object",
+          "username": "HarnessBot",
+          "remote": "127.0.0.1"
+        },
+        {
+          "t": 603,
+          "name": "login",
+          "username": "HarnessBot",
+          "uuid": "cbb41d39-9a67-36f7-95fe-e8d24b6dbed7",
+          "protocol": 774
+        },
+        {
+          "t": 631,
+          "name": "state",
+          "username": "HarnessBot",
+          "from": "login",
+          "to": "configuration"
+        },
+        {
+          "t": 631,
+          "name": "select_known_packs",
+          "username": "HarnessBot",
+          "ok": true
+        },
+        {
+          "t": 657,
+          "name": "state",
+          "username": "HarnessBot",
+          "from": "configuration",
+          "to": "play"
+        },
+        {
+          "t": 657,
+          "name": "playerJoin",
+          "username": "HarnessBot"
+        },
+        {
+          "t": 657,
+          "name": "play_probes_start",
+          "username": "HarnessBot"
+        },
+        {
+          "t": 1861,
+          "name": "resource_pack_sent",
+          "url": "http://127.0.0.1:39283/test.zip",
+          "ok": true,
+          "packet": "add_resource_pack"
+        },
+        {
+          "t": 2462,
+          "name": "resource_pack_308_sent",
+          "url": "http://127.0.0.1:39283/to-loopback-308"
+        },
+        {
+          "t": 5366,
+          "name": "end",
+          "username": "HarnessBot",
+          "reason": "nf-probe-complete"
+        }
+      ],
+      "disconnects": [
+        {
+          "username": "HarnessBot",
+          "reason": "nf-probe-complete",
+          "t_ms": 5366
+        }
+      ],
+      "probes": [
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "client_brand",
+          "observed": null,
+          "expected": "*",
+          "result": "INCONCLUSIVE",
+          "notes": "No minecraft:brand payload was received. Silence is not treated as PASS.",
+          "t_ms": 5364
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "custom_payload_channels",
+          "observed": {
+            "channels": [],
+            "payloads": []
+          },
+          "expected": "harness bot is not Fabric",
+          "result": "INCONCLUSIVE",
+          "notes": "No minecraft:register list observed (vanilla clients often send none).",
+          "t_ms": 5364
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "inbound_unknown_payload",
+          "observed": {
+            "disconnected": true,
+            "reason": "nf-probe-complete",
+            "sent": [
+              {
+                "channel": "nofingerprint_probe:unknown",
+                "ok": true,
+                "name": "custom_payload"
+              },
+              {
+                "channel": "fabric:registry/sync",
+                "ok": true,
+                "name": "custom_payload"
+              },
+              {
+                "channel": "fabric:s2c/not_a_real_packet",
+                "ok": true,
+                "name": "custom_payload"
+              },
+              {
+                "channel": "voicechat:secret",
+                "ok": true,
+                "name": "custom_payload"
+              }
+            ]
+          },
+          "expected": "document disconnect vs ignore",
+          "result": "INCONCLUSIVE",
+          "notes": "Self-test bot is not Fabric. Stay-connected after unknown payloads is not NF codec protection.",
+          "t_ms": 5364
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "known_packs",
+          "observed": [],
+          "expected": "any",
+          "result": "INCONCLUSIVE",
+          "notes": "Only minecraft namespaces, or empty intersection.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "resource_pack_local_url",
+          "observed": {
+            "tcpCount": 0,
+            "httpCount": 0,
+            "testZipGets": 0,
+            "privateGets": 0,
+            "packStatus": [],
+            "requests": []
+          },
+          "expected": "GET /test.zip (baseline Fabric/vanilla download)",
+          "result": "INCONCLUSIVE",
+          "notes": "GET count=0",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "resource_pack_status",
+          "observed": [],
+          "expected": "record only",
+          "result": "INCONCLUSIVE",
+          "notes": "No resource-pack status packet from the client.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "redirect_308",
+          "observed": {
+            "tcpCount": 0,
+            "privateGets": 0,
+            "chainGets": 0,
+            "redirect308": 0
+          },
+          "expected": "private target /private receives no GET; 308 hop classified",
+          "result": "INCONCLUSIVE",
+          "notes": "Initial pack URL for 308 is loopback in this harness, so a successful NF block may skip the redirect hop entirely. Unit tests cover RedirectPolicy; live 308-from-public remains limited by bindable addresses.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "translation_sign_echo",
+          "observed": [],
+          "expected": "n/a",
+          "result": "INCONCLUSIVE",
+          "notes": "No update_sign. Automated clients never close the editor; this probe needs a human or is INCONCLUSIVE.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "keybind_sign_echo",
+          "observed": [],
+          "expected": "document resolved vs raw key.jump / key.fake_mod.open_gui",
+          "result": "INCONCLUSIVE",
+          "notes": "Same observation path as translation (sign editor). Not scored without an echoed line.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "chat_signing",
+          "observed": {
+            "chatSession": [],
+            "chatMessages": []
+          },
+          "expected": "n/a",
+          "result": "INCONCLUSIVE",
+          "notes": "Offline-mode sessions usually have no Mojang profile key. Presence/absence of chat_session_update is recorded, not scored.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "cache_isolation",
+          "observed": null,
+          "expected": "Account B must not reuse Account A cache (second username \u2192 second GET)",
+          "result": "INCONCLUSIVE",
+          "notes": "Requires two sequential joins with different offline usernames against the same pack URL/hash. Use --cache-pair or connect twice.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "dns_toctou",
+          "observed": null,
+          "expected": "not claimed as fixed",
+          "result": "INCONCLUSIVE",
+          "notes": "HttpURLConnection may resolve twice. A safe deterministic rebind against the JVM was not constructed (would need a fake DNS for the Minecraft process). See SECURITY_AUDIT.md PARTIALLY MITIGATED.",
+          "t_ms": 5365
+        },
+        {
+          "minecraft_version": "1.21.11",
+          "configuration": "self-test",
+          "probe": "connection_lifecycle",
+          "observed": [
+            {
+              "t_ms": 603,
+              "name": "tcp_or_client_object",
+              "remote": "127.0.0.1"
+            },
+            {
+              "t_ms": 631,
+              "state": "login",
+              "name": "login_acknowledged",
+              "direction": "c2s",
+              "size": 1,
+              "kind": "packet"
+            },
+            {
+              "t_ms": 631,
+              "name": "state",
+              "from": "login",
+              "to": "configuration"
+            },
+            {
+              "t_ms": 631,
+              "name": "select_known_packs",
+              "ok": true
+            },
+            {
+              "t_ms": 634,
+              "state": "configuration",
+              "name": "settings",
+              "direction": "c2s",
+              "size": 15,
+              "kind": "packet"
+            },
+            {
+              "t_ms": 657,
+              "state": "configuration",
+              "name": "select_known_packs",
+              "direction": "c2s",
+              "size": 2,
+              "kind": "packet"
+            },
+            {
+              "t_ms": 657,
+              "state": "configuration",
+              "name": "finish_configuration",
+              "direction": "c2s",
+              "size": 1,
+              "kind": "packet"
+            },
+            {
+              "t_ms": 657,
+              "name": "state",
+              "from": "configuration",
+              "to": "play"
+            },
+            {
+              "t_ms": 5366,
+              "name": "end",
+              "reason": "nf-probe-complete"
+            }
+          ],
+          "expected": "timestamps only",
+          "result": "PASS",
+          "notes": "Timing is collected, not obfuscated.",
+          "t_ms": 5365
+        }
+      ]
+    },
+    {
+      "minecraft_version": "26.2",
+      "configuration": "default",
+      "probes": [
+        {
+          "minecraft_version": "26.2",
+          "configuration": "default",
+          "probe": "protocol_library",
+          "observed": [
+            "1.7",
+            "1.8.8",
+            "1.9.4",
+            "1.10.2",
+            "1.11.2",
+            "1.12.2",
+            "1.13.2",
+            "1.14.4",
+            "1.15.2",
+            "1.16.5",
+            "1.17.1",
+            "1.18.2",
+            "1.19",
+            "1.19.2",
+            "1.19.3",
+            "1.19.4",
+            "1.20",
+            "1.20.1",
+            "1.20.2",
+            "1.20.4",
+            "1.20.6",
+            "1.21.1",
+            "1.21.3",
+            "1.21.4",
+            "1.21.5",
+            "1.21.6",
+            "1.21.8",
+            "1.21.9",
+            "1.21.11",
+            "26.1"
+          ],
+          "expected": "26.2 listed",
+          "result": "NOT_SUPPORTED",
+          "notes": "26.2 is not in minecraft-protocol 1.68.0 (26.1 is). Architecture accepts 26.2; runtime is NOT_SUPPORTED until the library lists it."
+        }
+      ]
+    },
+    {
+      "minecraft_version": "1.20.1",
+      "configuration": "default",
+      "host": "127.0.0.1",
+      "port": 25574,
+      "duration_ms": null,
+      "events": [
+        {
+          "name": "loom_runClient",
+          "notes": "Fabric Loader 0.19.3, NoFingerprint 1.1.7.1-nofingerprint.2. --server/--port ignored. GLFW GLX failed under Xvfb."
+        },
+        {
+          "name": "http_noise",
+          "notes": "Pack HTTP listener saw GET / and GET /json/version; not /test.zip. Not treated as a pack download."
+        }
+      ],
+      "disconnects": [],
+      "probes": [
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "default",
+          "probe": "client_init_decisions",
+          "observed": {
+            "ep": false,
+            "spoofAsVanilla": false,
+            "brand": false,
+            "channels": true,
+            "knownPacks": true,
+            "isolateCache": true,
+            "blockLocalUrls": true,
+            "translation": true,
+            "stripShaders": true,
+            "unsignedChat": false,
+            "telemetry": true
+          },
+          "expected": "Phase 1 matrix with EP absent and default config",
+          "result": "PASS",
+          "notes": "RUNTIME VERIFIED via -Dnofingerprint.debug.probes=true during :1.20.1:runClient. No server join occurred."
+        },
+        {
+          "minecraft_version": "1.20.1",
+          "configuration": "default",
+          "probe": "client_brand",
+          "observed": null,
+          "expected": "fabric (default spoofAsVanilla=false)",
+          "result": "INCONCLUSIVE",
+          "notes": "Client never entered play. Window init failed (GLFW 65542 GLX). --server args ignored by 1.20.1 Fabric Main."
+        }
+      ]
+    }
+  ]
+}

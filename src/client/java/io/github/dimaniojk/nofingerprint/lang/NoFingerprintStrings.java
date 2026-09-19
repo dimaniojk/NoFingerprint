@@ -30,6 +30,7 @@ public final class NoFingerprintStrings {
     public static final String SECTION_RESTART_WARNING = "nofingerprint.section.restartWarning";
     public static final String SECTION_DEBUG = "nofingerprint.section.debug";
     public static final String ACCOUNT_CURRENT = "nofingerprint.account.current";
+    public static final String ACCOUNT_STORAGE_WARNING = "nofingerprint.account.storageWarning";
     public static final String WHITELIST_SUFFIX_CHANNELS = "nofingerprint.whitelist.suffix.channels";
 
     public static final String OPTION_SPOOF_AS_VANILLA = "nofingerprint.option.spoofAsVanilla";
@@ -48,6 +49,11 @@ public final class NoFingerprintStrings {
 
     public static final String EP_MANAGED_HEADER = "nofingerprint.ep.managed.header";
     public static final String EP_MANAGED_TOOLTIP = "nofingerprint.ep.managed.tooltip";
+    public static final String EP_URL_OVERLAP_TOOLTIP = "nofingerprint.ep.urlOverlap.tooltip";
+    public static final String EP_TRANSLATION_OVERLAP_TOOLTIP = "nofingerprint.ep.translationOverlap.tooltip";
+
+    public static final String DIAG_BRAND_CHANNELS_VISIBLE = "nofingerprint.diag.brandChannelsVisible";
+    public static final String DIAG_AUTO_WHITELIST = "nofingerprint.diag.autoWhitelist";
 
     // Generic "managed by another mod" strings; %s is the managing mod's display name.
     public static final String COMPAT_MANAGED_HEADER = "nofingerprint.compat.managed.header";

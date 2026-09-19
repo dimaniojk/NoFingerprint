@@ -1,6 +1,5 @@
 package io.github.dimaniojk.nofingerprint.mixin.client;
 
-//? if >=1.20.2 {
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -8,9 +7,12 @@ import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import io.github.dimaniojk.nofingerprint.NoFingerprint;
 import io.github.dimaniojk.nofingerprint.PrivacyLogger;
 import io.github.dimaniojk.nofingerprint.config.NoFingerprintConfig;
+import io.github.dimaniojk.nofingerprint.debug.ProbeDiagnostics;
 import io.github.dimaniojk.nofingerprint.util.LocalAddressUtil;
+import io.github.dimaniojk.nofingerprint.util.RedirectPolicy;
 import net.minecraft.util.HttpUtil;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 import java.io.IOException;
@@ -23,13 +25,19 @@ import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.Socket;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Vanilla-aligned redirect handling with per-hop local-address rejection.
  *
- * <p>Follows 300/301/302/303/307. 305 is re-issued through the named proxy via
+ * <p>Follows 300/301/302/303/305/307/308. 305 is re-issued through the named proxy via
  * {@link Proxy.Type#HTTP}. Cross-protocol redirects are rejected.
+ *
+ * <p>1.20.1 and 1.20.2 hook {@code HttpUtil.method_15303} (the {@code downloadTo}
+ * lambda). 1.20.3+ hooks {@code downloadFile}. Both call
+ * {@code HttpURLConnection.getInputStream()} — verified on the 1.20.1 mapped jar.
  *
  * <p>Each new redirect connection sets a unique {@link Authenticator}. JDK's
  * {@code HttpClient.New} compatibility check rejects any cached
@@ -38,6 +46,10 @@ import java.util.Map;
  * hop uses a fresh TCP socket, matching vanilla MC's
  * {@code setInstanceFollowRedirects(true)} behavior. The {@code Authenticator}
  * is never invoked unless the server responds with 401/407.
+ *
+ * <p>DNS TOCTOU: PARTIALLY MITIGATED — every hop's host is resolved and classified
+ * before {@code openConnection}, but {@code HttpURLConnection} may resolve again
+ * at connect. See {@link RedirectPolicy}.
  */
 @Mixin(HttpUtil.class)
 public class HttpUtilMixin {
@@ -47,13 +59,8 @@ public class HttpUtilMixin {
         //? if >=1.20.3 {
         method = "downloadFile",
         //?} else {
-        /*// 1.20.1 / 1.20.2: HttpUtil.downloadFile doesn't exist yet — the actual HTTP work
-        // lives in a private static synthetic method (the CompletableFuture.supplyAsync
-        // lambda body of downloadTo). Mojang's official mappings don't cover this synthetic,
-        // so Loom falls back to the Yarn intermediary name "method_15303". We list
-        // "lambda$downloadTo$0" as a secondary candidate in case a future toolchain rev
-        // picks the Java synthetic name instead — the @At INVOKE selector ensures only
-        // one of them binds.
+        /*// 1.20.1 / 1.20.2: HttpUtil.downloadFile doesn't exist. HTTP work lives in
+        // private static method_15303 (Yarn intermediary for the downloadTo lambda).
         method = {"method_15303", "lambda$downloadTo$0"},
         *///?}
         at = @At(value = "INVOKE", target = "Ljava/net/HttpURLConnection;getInputStream()Ljava/io/InputStream;"),
@@ -68,35 +75,22 @@ public class HttpUtilMixin {
 
         if (!NoFingerprintConfig.getInstance().shouldBlockLocalPackUrls()) return original.call(instance);
 
-        if (!LocalAddressUtil.isLocalAddress(LocalAddressUtil.serverAddress)
-                && LocalAddressUtil.isLocalAddress(instance.getURL().getHost())) {
-            NoFingerprint.LOGGER.warn("[NoFingerprint] Blocked connection to local address: {}", instance.getURL());
-            PrivacyLogger.alertLocalPortScanDetected(instance.getURL().toString(), true);
-            throw new IllegalStateException("Tried to connect to local address!");
-        }
+        nofingerprint$rejectIfBlocked(instance.getURL());
 
         instance.setInstanceFollowRedirects(false);
 
+        int maxRedirects = RedirectPolicy.maxRedirects();
         int redirects = 0;
-        String maxRedirectString = System.getProperty("http.maxRedirects") == null
-            ? "20" : System.getProperty("http.maxRedirects");
-        int maxRedirects = 20;
-        try { maxRedirects = Math.max(Integer.parseInt(maxRedirectString), 1); }
-        catch (NumberFormatException ignored) {}
-
+        Set<String> seenHops = new HashSet<>();
+        seenHops.add(instance.getURL().toString());
         int status = instance.getResponseCode();
 
         while (instance.getHeaderField("Location") != null
-                && (status == 300 || status == 301 || status == 302 || status == 303 || status == 305 || status == 307)) {
+                && RedirectPolicy.isFollowableRedirect(status)) {
             if (redirects >= maxRedirects - 1) {
                 // Mirror vanilla JDK's setProxiedClient leak so cap-boundary TCP-count fingerprinting fails.
                 try {
-                    URL leakUrl;
-                    try {
-                        leakUrl = new URL(instance.getHeaderField("Location"));
-                    } catch (MalformedURLException exception) {
-                        leakUrl = new URL(instance.getURL(), instance.getHeaderField("Location"));
-                    }
+                    URL leakUrl = RedirectPolicy.resolveLocation(instance.getURL(), instance.getHeaderField("Location"));
                     int leakPort = leakUrl.getPort() == -1 ? leakUrl.getDefaultPort() : leakUrl.getPort();
                     //noinspection resource
                     new Socket(leakUrl.getHost(), leakPort);
@@ -107,22 +101,15 @@ public class HttpUtilMixin {
             if (status == 305) {
                 URL proxyUrl;
                 try {
-                    proxyUrl = new URL(instance.getHeaderField("Location"));
-                } catch (MalformedURLException exception) {
-                    try {
-                        proxyUrl = new URL(instance.getURL(), instance.getHeaderField("Location"));
-                    } catch (MalformedURLException ignored) {
-                        break;
-                    }
+                    proxyUrl = RedirectPolicy.resolveLocation(instance.getURL(), instance.getHeaderField("Location"));
+                } catch (MalformedURLException ignored) {
+                    break;
                 }
-                if (!proxyUrl.getProtocol().equalsIgnoreCase("http")
-                        && !proxyUrl.getProtocol().equalsIgnoreCase("https")) break;
+                if (!RedirectPolicy.isHttpOrHttps(proxyUrl)) break;
 
-                if (!LocalAddressUtil.isLocalAddress(LocalAddressUtil.serverAddress)
-                        && LocalAddressUtil.isLocalAddress(proxyUrl.getHost())) {
-                    NoFingerprint.LOGGER.warn("[NoFingerprint] Blocked connection to local address: {}", proxyUrl);
-                    PrivacyLogger.alertLocalPortScanDetected(proxyUrl.toString(), true);
-                    throw new IllegalStateException("Tried to connect to local address!");
+                nofingerprint$rejectIfBlocked(proxyUrl);
+                if (!seenHops.add(proxyUrl.toString())) {
+                    throw new ProtocolException("Redirect loop detected");
                 }
 
                 int proxyPort = proxyUrl.getPort() == -1 ? proxyUrl.getDefaultPort() : proxyUrl.getPort();
@@ -134,21 +121,19 @@ public class HttpUtilMixin {
             } else {
                 URL url;
                 try {
-                    url = new URL(instance.getHeaderField("Location"));
+                    url = RedirectPolicy.resolveLocation(instance.getURL(), instance.getHeaderField("Location"));
                     if (!instance.getURL().getProtocol().equalsIgnoreCase(url.getProtocol())) break;
                 } catch (MalformedURLException exception) {
-                    url = new URL(instance.getURL(), instance.getHeaderField("Location"));
+                    break;
+                }
+
+                nofingerprint$rejectIfBlocked(url);
+                if (!seenHops.add(url.toString())) {
+                    throw new ProtocolException("Redirect loop detected");
                 }
 
                 instance = (HttpURLConnection) url.openConnection(proxy);
                 instance.setAuthenticator(new Authenticator() {});
-
-                if (!LocalAddressUtil.isLocalAddress(LocalAddressUtil.serverAddress)
-                        && LocalAddressUtil.isLocalAddress(instance.getURL().getHost())) {
-                    NoFingerprint.LOGGER.warn("[NoFingerprint] Blocked connection to local address: {}", instance.getURL());
-                    PrivacyLogger.alertLocalPortScanDetected(instance.getURL().toString(), true);
-                    throw new IllegalStateException("Tried to connect to local address!");
-                }
             }
 
             instance.setInstanceFollowRedirects(false);
@@ -161,14 +146,15 @@ public class HttpUtilMixin {
         httpURLConnection.set(instance);
         return original.call(instance);
     }
-}
-//?} else {
-/*
-import net.minecraft.network.protocol.PacketUtils;
-import org.spongepowered.asm.mixin.Mixin;
 
-// 1.20.1: Block Local URLs disabled (see MC_VERSION_HAS_BLOCK_LOCAL_URLS). Stub.
-@Mixin(PacketUtils.class)
-public class HttpUtilMixin {
+    @Unique
+    private static void nofingerprint$rejectIfBlocked(URL url) throws IOException {
+        if (url == null) return;
+        if (RedirectPolicy.isBlockedHop(url, LocalAddressUtil.serverAddress)) {
+            NoFingerprint.LOGGER.warn("[NoFingerprint] Blocked connection to local address: {}", url);
+            ProbeDiagnostics.log("blocked pack url={} serverAddress={}", url, LocalAddressUtil.serverAddress);
+            PrivacyLogger.alertLocalPortScanDetected(url.toString(), true);
+            throw new IllegalStateException("Tried to connect to local address!");
+        }
+    }
 }
-*///?}

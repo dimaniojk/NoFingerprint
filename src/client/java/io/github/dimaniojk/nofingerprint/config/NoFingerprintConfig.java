@@ -1,6 +1,7 @@
 package io.github.dimaniojk.nofingerprint.config;
 
 import io.github.dimaniojk.nofingerprint.NoFingerprint;
+import io.github.dimaniojk.nofingerprint.debug.ProbeDiagnostics;
 import io.github.dimaniojk.nofingerprint.tracking.ModRegistry;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -34,6 +35,7 @@ public class NoFingerprintConfig {
     // present NoFingerprint stands down on the shared feature (greys the control out) rather
     // than double-stripping signatures / double-disabling telemetry. Unlike EP this is
     // per-feature: No Chat Reports only covers signing; No Prying Eyes covers both.
+    // ExploitPreventer overlap is NOT a blanket stand-down — see CompatibilityPolicy.
     public static final boolean NO_CHAT_REPORTS_LOADED =
         FabricLoader.getInstance().isModLoaded("nochatreports");
     public static final boolean NO_PRYING_EYES_LOADED =
@@ -55,12 +57,9 @@ public class NoFingerprintConfig {
     /*public static final boolean MC_VERSION_HAS_MULTI_PACK = false;
     *///?}
 
-    // Block Local URLs: 1.20.1's HttpUtil lambda targeting was unreliable in practice; off there.
-    //? if >=1.20.2 {
+    // Block Local URLs: HttpUtil.method_15303 (1.20.1/1.20.2) and downloadFile (1.20.3+)
+    // both invoke HttpURLConnection.getInputStream — verified on the 1.20.1 mapped jar.
     public static final boolean MC_VERSION_HAS_BLOCK_LOCAL_URLS = true;
-    //?} else {
-    /*public static final boolean MC_VERSION_HAS_BLOCK_LOCAL_URLS = false;
-    *///?}
 
     private static volatile NoFingerprintConfig INSTANCE;
     private static final Object LOCK = new Object();
@@ -72,7 +71,9 @@ public class NoFingerprintConfig {
         load();
         if (EXPLOIT_PREVENTER_LOADED) {
             NoFingerprint.LOGGER.info(
-                "[NoFingerprint] ExploitPreventer detected - compatibility mode active."
+                "[NoFingerprint] ExploitPreventer detected — standing down only overlapping HTTP URL "
+                    + "and translation hooks. Brand, channels, known-packs, pack-strip, shaders, "
+                    + "and pack-cache isolation stay under NoFingerprint."
             );
         }
         if (NO_CHAT_REPORTS_LOADED) {
@@ -85,6 +86,35 @@ public class NoFingerprintConfig {
                 "[NoFingerprint] No Prying Eyes detected - deferring chat signing and telemetry to it."
             );
         }
+        logProbeSnapshot();
+    }
+
+    /** Dump feature decisions when {@code -Dnofingerprint.debug.probes=true}. */
+    public void logProbeSnapshot() {
+        if (!ProbeDiagnostics.enabled()) {
+            return;
+        }
+        CompatibilityPolicy.Decisions d = compatibility();
+        ProbeDiagnostics.log(
+            "mc={} ep={} ncr={} npe={} spoofAsVanilla={} brand={} channels={} knownPacks={} isolateCache={} blockLocalUrls={} translation={} stripShaders={} unsignedChat={} telemetry={}",
+            net.fabricmc.loader.api.FabricLoader.getInstance()
+                .getModContainer("minecraft")
+                .map(c -> c.getMetadata().getVersion().getFriendlyString())
+                .orElse("unknown"),
+            EXPLOIT_PREVENTER_LOADED,
+            NO_CHAT_REPORTS_LOADED,
+            NO_PRYING_EYES_LOADED,
+            settings.isSpoofAsVanilla(),
+            d.spoofBrand(),
+            d.filterChannels(),
+            d.filterKnownPacks(),
+            d.isolatePackCache(),
+            d.blockLocalPackUrls(),
+            d.translationProtection(),
+            d.stripModShaders(),
+            d.applyUnsignedChat(),
+            d.blockTelemetry()
+        );
     }
 
     /** Display name of the mod managing chat signing, or {@code null} if NoFingerprint manages it. */
@@ -278,28 +308,42 @@ public class NoFingerprintConfig {
         return currentServer;
     }
 
+    CompatibilityPolicy.Decisions compatibility() {
+        return CompatibilityPolicy.decide(new CompatibilityPolicy.Context(
+            EXPLOIT_PREVENTER_LOADED,
+            NO_CHAT_REPORTS_LOADED,
+            NO_PRYING_EYES_LOADED,
+            settings.isSpoofAsVanilla(),
+            settings.isIsolatePackCache(),
+            settings.isBlockLocalPackUrls(),
+            settings.isTranslationProtectionEnabled(),
+            settings.isStripModShaders(),
+            settings.shouldNotSign(),
+            settings.isDisableTelemetry()
+        ));
+    }
+
     // Identity protection
     /**
-     * Whether the brand string should be overridden to "vanilla". Only true when
-     * the user opted in via the UI toggle and ExploitPreventer isn't loaded.
+     * Whether the brand string should be overridden to "vanilla".
+     * ExploitPreventer does not spoof brand — this is never EP-gated.
      */
     public boolean shouldSpoofBrand() {
-        return !EXPLOIT_PREVENTER_LOADED && settings.isSpoofAsVanilla();
+        return compatibility().spoofBrand();
     }
 
     /**
      * Whether channel spoofing/filtering should be active. Independent of brand —
-     * channel filtering happens whenever NoFingerprint is in charge (i.e., EP not loaded).
-     * The filter mode (block-all vs whitelist) is chosen by isVanillaMode/
-     * isFabricMode in SpoofSettings, which read directly from spoofAsVanilla.
+     * the filter mode (block-all vs whitelist) is chosen by isVanillaMode/
+     * isFabricMode in SpoofSettings. ExploitPreventer does not filter channels.
      */
     public boolean shouldSpoofChannels() {
-        return !EXPLOIT_PREVENTER_LOADED;
+        return compatibility().filterChannels();
     }
 
-    /** Same EP gate as {@link #shouldSpoofChannels()} — kept distinct so the two can diverge without churn. */
+    /** ExploitPreventer does not filter known-packs. */
     public boolean shouldSpoofKnownPacks() {
-        return !EXPLOIT_PREVENTER_LOADED;
+        return compatibility().filterKnownPacks();
     }
 
     public String getEffectiveBrand() {
@@ -307,17 +351,25 @@ public class NoFingerprintConfig {
     }
 
     // Resource pack protection
+    /**
+     * Per-account pack cache. EP overlaps on the same path but the two mixins
+     * coexist (see {@link CompatibilityPolicy}); NF stays in charge of the toggle.
+     */
     public boolean shouldIsolatePackCache() {
-        return !EXPLOIT_PREVENTER_LOADED && settings.isIsolatePackCache();
+        return compatibility().isolatePackCache();
     }
 
+    /**
+     * Local/private pack URL blocking. Stood down when ExploitPreventer is loaded
+     * because both wrap the same {@code HttpUtil.getInputStream} call.
+     */
     public boolean shouldBlockLocalPackUrls() {
-        return !EXPLOIT_PREVENTER_LOADED && settings.isBlockLocalPackUrls();
+        return compatibility().blockLocalPackUrls();
     }
 
-    /** Per-mod shader strip. Not EP-gated — EP lacks this defense, so NoFingerprint keeps it active under EP. */
+    /** Per-mod shader strip. EP lacks this defense. */
     public boolean shouldStripModShaders() {
-        return settings.isStripModShaders();
+        return compatibility().stripModShaders();
     }
 
     /** True when any server-pack wrapping feature is active (whole-pack strip or per-mod shader strip). */
@@ -326,11 +378,12 @@ public class NoFingerprintConfig {
     }
 
     // Key resolution protection
+    /**
+     * Stood down when ExploitPreventer is loaded — both wrap
+     * {@code TranslatableContents.decompose} / the component codec.
+     */
     public boolean isTranslationProtectionEnabled() {
-        return (
-            !EXPLOIT_PREVENTER_LOADED &&
-            settings.isTranslationProtectionEnabled()
-        );
+        return compatibility().translationProtection();
     }
 
     public boolean isMeteorFix() {
@@ -342,16 +395,14 @@ public class NoFingerprintConfig {
         return settings.getPackStripMode();
     }
 
+    /** EP has no pack-strip equivalent. */
     public boolean shouldStripPack() {
-        return !EXPLOIT_PREVENTER_LOADED;
+        return compatibility().stripPack();
     }
 
     /** The consent overlay prompt should show for an incoming push. */
     public boolean shouldShowPackOverlay() {
-        return (
-            !EXPLOIT_PREVENTER_LOADED &&
-            settings.getPackStripMode() == SpoofSettings.StripMode.ASK
-        );
+        return settings.getPackStripMode() == SpoofSettings.StripMode.ASK;
     }
 
     // Alerts and logging
@@ -377,12 +428,12 @@ public class NoFingerprintConfig {
     }
 
     public boolean shouldNotSign() {
-        return !CHAT_SIGNING_MANAGED_EXTERNALLY && settings.shouldNotSign();
+        return compatibility().applyUnsignedChat();
     }
 
     // Privacy
     public boolean shouldDisableTelemetry() {
-        return !TELEMETRY_MANAGED_EXTERNALLY && settings.isDisableTelemetry();
+        return compatibility().blockTelemetry();
     }
 
     /**

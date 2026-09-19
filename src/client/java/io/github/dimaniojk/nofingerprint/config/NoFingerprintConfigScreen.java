@@ -213,68 +213,59 @@ public class NoFingerprintConfigScreen extends Screen {
         // Client Brand Section
         widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_CLIENT_BRAND)));
 
-        if (NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED) {
-            widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.EP_MANAGED_HEADER)));
-            widgets.add(createEPManagedToggle(NoFingerprintLang.component(NoFingerprintStrings.OPTION_SPOOF_AS_VANILLA)));
-        } else {
-            widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isSpoofAsVanilla())
-                    .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.OPTION_SPOOF_AS_VANILLA_TOOLTIP)))
-                    .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_SPOOF_AS_VANILLA),
-                        (button, value) -> {
-                            // setSpoofAsVanilla snapshots / restores whitelistMode around
-                            // the implicit Block-All override (see SpoofSettings).
-                            settings.setSpoofAsVanilla(value);
-                            config.save();
-                            refreshScreen();
-                    }));
+        widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isSpoofAsVanilla())
+                .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.OPTION_SPOOF_AS_VANILLA_TOOLTIP)))
+                .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_SPOOF_AS_VANILLA),
+                    (button, value) -> {
+                        // setSpoofAsVanilla snapshots / restores whitelistMode around
+                        // the implicit Block-All override (see SpoofSettings).
+                        settings.setSpoofAsVanilla(value);
+                        config.save();
+                        refreshScreen();
+                }));
+        if (!settings.isSpoofAsVanilla()) {
+            widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.DIAG_BRAND_CHANNELS_VISIBLE)));
         }
 
         // Resource Pack Protection Section
         widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_RESOURCE_PACK)));
 
-        if (NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED) {
+        widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isIsolatePackCache())
+                .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_ISOLATE_PACK_CACHE)))
+                .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_ISOLATE_PACK_CACHE),
+                (button, value) -> { settings.setIsolatePackCache(value); config.save(); }));
+
+        if (CompatibilityPolicy.localUrlHookOwnedByExploitPreventer(NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED)) {
             widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.EP_MANAGED_HEADER)));
-            if (NoFingerprintConfig.MC_VERSION_HAS_MULTI_PACK) {
-                widgets.add(createEPManagedToggle(NoFingerprintLang.component(NoFingerprintStrings.OPTION_ISOLATE_PACK_CACHE)));
-            }
-            if (NoFingerprintConfig.MC_VERSION_HAS_BLOCK_LOCAL_URLS) {
-                widgets.add(createEPManagedToggle(NoFingerprintLang.component(NoFingerprintStrings.OPTION_BLOCK_LOCAL_PACK_URLS)));
-            }
+            widgets.add(createManagedToggle(
+                NoFingerprintLang.component(NoFingerprintStrings.OPTION_BLOCK_LOCAL_PACK_URLS),
+                NoFingerprintLang.component(NoFingerprintStrings.EP_URL_OVERLAP_TOOLTIP)));
         } else {
-            if (NoFingerprintConfig.MC_VERSION_HAS_MULTI_PACK) {
-                widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isIsolatePackCache())
-                        .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_ISOLATE_PACK_CACHE)))
-                        .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_ISOLATE_PACK_CACHE),
-                        (button, value) -> { settings.setIsolatePackCache(value); config.save(); }));
-            }
-
-            if (NoFingerprintConfig.MC_VERSION_HAS_BLOCK_LOCAL_URLS) {
-                widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isBlockLocalPackUrls())
-                    .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_BLOCK_LOCAL_PACK_URLS)))
-                        .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_BLOCK_LOCAL_PACK_URLS),
-                        (button, value) -> { settings.setBlockLocalPackUrls(value); config.save(); }));
-            }
-
-            // Bypass Server Pack Requirement (tri-state: MANUAL / ASK / ALWAYS_ON)
-            widgets.add(cycleBuilder(
-                    (SpoofSettings.StripMode m) -> switch (m) {
-                        case MANUAL    -> NoFingerprintLang.component(NoFingerprintStrings.PACKSTRIP_MODE_MANUAL);
-                        case ASK       -> NoFingerprintLang.component(NoFingerprintStrings.PACKSTRIP_MODE_ASK);
-                        case ALWAYS_ON -> NoFingerprintLang.component(NoFingerprintStrings.PACKSTRIP_MODE_ALWAYS_ON);
-                    },
-                    List.of(SpoofSettings.StripMode.values()),
-                    settings.getPackStripMode())
-                .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(switch (v) {
-                    case MANUAL    -> NoFingerprintStrings.PACKSTRIP_MODE_MANUAL_TOOLTIP;
-                    case ASK       -> NoFingerprintStrings.PACKSTRIP_MODE_ASK_TOOLTIP;
-                    case ALWAYS_ON -> NoFingerprintStrings.PACKSTRIP_MODE_ALWAYS_ON_TOOLTIP;
-                })))
-                .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_PACK_STRIP_MODE),
-                    (button, value) -> {
-                        settings.setPackStripMode(value);
-                        config.save();
-                    }));
+            widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isBlockLocalPackUrls())
+                .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_BLOCK_LOCAL_PACK_URLS)))
+                    .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_BLOCK_LOCAL_PACK_URLS),
+                    (button, value) -> { settings.setBlockLocalPackUrls(value); config.save(); }));
         }
+
+        // Bypass Server Pack Requirement (tri-state: MANUAL / ASK / ALWAYS_ON)
+        widgets.add(cycleBuilder(
+                (SpoofSettings.StripMode m) -> switch (m) {
+                    case MANUAL    -> NoFingerprintLang.component(NoFingerprintStrings.PACKSTRIP_MODE_MANUAL);
+                    case ASK       -> NoFingerprintLang.component(NoFingerprintStrings.PACKSTRIP_MODE_ASK);
+                    case ALWAYS_ON -> NoFingerprintLang.component(NoFingerprintStrings.PACKSTRIP_MODE_ALWAYS_ON);
+                },
+                List.of(SpoofSettings.StripMode.values()),
+                settings.getPackStripMode())
+            .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(switch (v) {
+                case MANUAL    -> NoFingerprintStrings.PACKSTRIP_MODE_MANUAL_TOOLTIP;
+                case ASK       -> NoFingerprintStrings.PACKSTRIP_MODE_ASK_TOOLTIP;
+                case ALWAYS_ON -> NoFingerprintStrings.PACKSTRIP_MODE_ALWAYS_ON_TOOLTIP;
+            })))
+            .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_PACK_STRIP_MODE),
+                (button, value) -> {
+                    settings.setPackStripMode(value);
+                    config.save();
+                }));
 
         // Strip mod shader overrides — interactive even under EP (EP does not cover this attack).
         widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isStripModShaders())
@@ -291,9 +282,11 @@ public class NoFingerprintConfigScreen extends Screen {
         // Key Resolution Protection Section
         widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_KEY_RESOLUTION)));
 
-        if (NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED) {
+        if (CompatibilityPolicy.translationHookOwnedByExploitPreventer(NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED)) {
             widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.EP_MANAGED_HEADER)));
-            widgets.add(createEPManagedToggle(NoFingerprintLang.component(NoFingerprintStrings.OPTION_KEY_RESOLUTION_SPOOFING)));
+            widgets.add(createManagedToggle(
+                NoFingerprintLang.component(NoFingerprintStrings.OPTION_KEY_RESOLUTION_SPOOFING),
+                NoFingerprintLang.component(NoFingerprintStrings.EP_TRANSLATION_OVERLAP_TOOLTIP)));
         } else {
             widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isTranslationProtectionEnabled())
                 .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_KEY_RESOLUTION_SPOOFING)))
@@ -303,34 +296,36 @@ public class NoFingerprintConfigScreen extends Screen {
                             config.save();
                             refreshScreen();
                     }));
+        }
 
-            // Only show sub-options when translation protection is enabled
-            if (settings.isTranslationProtectionEnabled()) {
-                widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isFakeDefaultKeybinds())
-                    .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_FAKE_DEFAULT_KEYBINDS)))
-                        .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_FAKE_DEFAULT_KEYBINDS),
-                            (button, value) -> {
-                                settings.setFakeDefaultKeybinds(value);
-                                config.save();
-                        }));
+        if (!CompatibilityPolicy.translationHookOwnedByExploitPreventer(NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED)
+                && settings.isTranslationProtectionEnabled()) {
+            widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isFakeDefaultKeybinds())
+                .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_FAKE_DEFAULT_KEYBINDS)))
+                    .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_FAKE_DEFAULT_KEYBINDS),
+                        (button, value) -> {
+                            settings.setFakeDefaultKeybinds(value);
+                            config.save();
+                    }));
+        }
 
-                //? if <26.1 {
-                widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isMeteorFix())
-                    .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_METEOR_FIX)))
-                        .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_METEOR_FIX),
-                            (button, value) -> {
-                                settings.setMeteorFix(value);
-                                config.save();
-                                refreshScreen();
-                        }));
+        //? if <26.1 {
+        if (settings.isTranslationProtectionEnabled()
+                || CompatibilityPolicy.translationHookOwnedByExploitPreventer(NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED)) {
+            widgets.add(cycleBuilder(COLORED_BOOL_TO_TEXT, List.of(Boolean.TRUE, Boolean.FALSE), settings.isMeteorFix())
+                .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.TOOLTIP_METEOR_FIX)))
+                    .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_METEOR_FIX),
+                        (button, value) -> {
+                            settings.setMeteorFix(value);
+                            config.save();
+                            refreshScreen();
+                    }));
 
-                // Show warning only when setting differs from what was applied at startup
-                if (MeteorMixinCanceller.needsRestart(settings.isMeteorFix())) {
-                    widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_RESTART_WARNING)));
-                }
-                //?}
+            if (MeteorMixinCanceller.needsRestart(settings.isMeteorFix())) {
+                widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_RESTART_WARNING)));
             }
         }
+        //?}
 
         // Privacy & Security Section
         widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_PRIVACY)));
@@ -415,6 +410,7 @@ public class NoFingerprintConfigScreen extends Screen {
         
         // Section header
         widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_ACCOUNTS)));
+        widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.ACCOUNT_STORAGE_WARNING)));
         
         // Current account info
         String currentUser = Minecraft.getInstance().getUser().getName();
@@ -1042,14 +1038,7 @@ public class NoFingerprintConfigScreen extends Screen {
         // Section header
         widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.SECTION_MOD_WHITELIST)));
 
-        if (NoFingerprintConfig.EXPLOIT_PREVENTER_LOADED) {
-            widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.EP_MANAGED_HEADER)));
-            CycleButton<SpoofSettings.WhitelistMode> modeButton = cycleBuilder(WhitelistModeDisplay::getDisplayName, List.of(SpoofSettings.WhitelistMode.values()), SpoofSettings.WhitelistMode.OFF)
-                    .withTooltip(v -> Tooltip.create(NoFingerprintLang.component(NoFingerprintStrings.EP_MANAGED_TOOLTIP)))
-                    .create(0, 0, 230, 20, NoFingerprintLang.component(NoFingerprintStrings.OPTION_WHITELIST_MODE), (b, v) -> {});
-            modeButton.active = false;
-            widgets.add(modeButton);
-        } else if (settings.isSpoofAsVanilla()) {
+        if (settings.isSpoofAsVanilla()) {
             // Spoofing as vanilla blocks ALL custom payloads, so the whitelist mode
             // is moot. Pin the cycle to OFF (Block All) and grey it out with a
             // tooltip explaining how to unlock it.
@@ -1077,6 +1066,7 @@ public class NoFingerprintConfigScreen extends Screen {
                     }));
 
             if (settings.getWhitelistMode() == SpoofSettings.WhitelistMode.AUTO) {
+                widgets.add(createSectionHeader(NoFingerprintLang.tr(NoFingerprintStrings.DIAG_AUTO_WHITELIST)));
                 List<ModContainer> whitelistableMods = getWhitelistableMods();
                 for (ModContainer mod : whitelistableMods) {
                     String modId = mod.getMetadata().getId();
@@ -1151,10 +1141,6 @@ public class NoFingerprintConfigScreen extends Screen {
                     && mod.getContainingMod().isEmpty())
             .sorted(Comparator.comparing(mod -> mod.getMetadata().getName(), String.CASE_INSENSITIVE_ORDER))
             .toList();
-    }
-
-    private CycleButton<Boolean> createEPManagedToggle(Component label) {
-        return createManagedToggle(label, NoFingerprintLang.component(NoFingerprintStrings.EP_MANAGED_TOOLTIP));
     }
 
     /** A greyed-out, inactive toggle standing in for a feature another mod manages. */

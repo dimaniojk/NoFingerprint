@@ -9,6 +9,7 @@ import io.github.dimaniojk.nofingerprint.detection.PacketContext;
 import io.github.dimaniojk.nofingerprint.protection.PackStripHandler;
 import io.github.dimaniojk.nofingerprint.protection.PackStripOverlay;
 import io.github.dimaniojk.nofingerprint.protection.TranslationProtectionHandler;
+import io.github.dimaniojk.nofingerprint.util.LocalAddressUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.PacketListener;
@@ -111,6 +112,8 @@ public abstract class ClientPacketListenerMixin {
         }
 
         NoFingerprintConfig.getInstance().setCurrentServer(serverAddress);
+        // Used by pack-URL blocking to skip when the game server itself is local/private.
+        LocalAddressUtil.serverAddress = serverAddress;
 
         // Schedule port scan summary after 2 seconds
         nofingerprint$pendingTask = nofingerprint$getScheduler().schedule(() -> {
@@ -162,6 +165,7 @@ public abstract class ClientPacketListenerMixin {
         PrivacyLogger.resetPortScanTracking();
         PrivacyLogger.clearCooldowns();
         NoFingerprintConfig.getInstance().setCurrentServer(null);
+        LocalAddressUtil.serverAddress = null;
         PackStripHandler.clearAll();
         PackStripOverlay.clearQueue();
     }

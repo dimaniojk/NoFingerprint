@@ -126,6 +126,15 @@ dependencies {
 
     // MixinSquared for cancelling other mods' mixins (Meteor Client fix)
     include(implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:0.3.7-beta.1")))
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    // Address/redirect tests must not reach the network.
+    systemProperty("java.net.preferIPv4Stack", "false")
 }
 
 def javaVersion = (findProperty("java_version") ?: (isUnobfuscated ? "25" : "21")) as int
@@ -161,8 +170,11 @@ java {
 }
 
 tasks.jar {
-    from("LICENSE") {
-        rename { "${it}_${base.archivesName.get()}" }
+    from(rootProject.file("LICENSE")) {
+        rename { "LICENSE_${base.archivesName.get()}" }
+    }
+    from(rootProject.file("NOTICE")) {
+        rename { "NOTICE_${base.archivesName.get()}" }
     }
 }
 

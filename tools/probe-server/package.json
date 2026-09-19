@@ -1,0 +1,20 @@
+{
+  "name": "nofingerprint-probe-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Minecraft protocol probe server for NoFingerprint runtime verification. Offline, 127.0.0.1 only.",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "self-test": "node src/index.js --self-test --once --timeout-ms 25000",
+    "http-only": "node src/index.js --http-only"
+  },
+  "dependencies": {
+    "minecraft-data": "^3.109.0",
+    "minecraft-protocol": "1.68.0",
+    "prismarine-nbt": "^2.5.0"
+  }
+}
