@@ -92,8 +92,8 @@ public class ClientConnectionMixin {
 
         try {
             ChannelPipeline pipeline = channel.pipeline();
-            if (pipeline.get("opsec_filter") == null) {
-                pipeline.addAfter("encoder", "opsec_filter", new NoFingerprintPacketFilter());
+            if (pipeline.get("nofingerprint_filter") == null) {
+                pipeline.addAfter("encoder", "nofingerprint_filter", new NoFingerprintPacketFilter());
                 nofingerprint$pipelineHandlerInstalled = true;
                 NoFingerprint.LOGGER.debug("[NoFingerprint] Installed Netty pipeline filter (after encoder)");
             }
