@@ -1,34 +1,37 @@
 {
 	"schemaVersion": 1,
-	"id": "opsec",
+	"id": "nofingerprint",
 	"version": "${version}",
-	"name": "OpSec",
-	"description": "Advanced client brand spoofing, tracking exploit protections, and other privacy focused features.",
+	"name": "NoFingerprint",
+	"description": "A client-side Minecraft privacy mod focused on reducing client fingerprinting, tracking vectors, and unnecessary information disclosure to servers.",
 	"authors": [
+		"dimaniojk"
+	],
+	"contributors": [
 		"Aurick"
 	],
 	"contact": {
-		"homepage": "https://modrinth.com/mod/opsec",
-		"sources": "https://github.com/aurickk/OpSec",
-		"issues": "https://github.com/aurickk/OpSec/issues"
+		"homepage": "https://github.com/dimaniojk/NoFingerprint",
+		"sources": "https://github.com/dimaniojk/NoFingerprint",
+		"issues": "https://github.com/dimaniojk/NoFingerprint/issues"
 	},
 	"license": "GPL-3.0-only",
-	"icon": "assets/opsec/icon.png",
+	"icon": "assets/nofingerprint/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
-			"aurick.opsec.mod.OpsecClient"
+			"io.github.dimaniojk.nofingerprint.NoFingerprintClient"
 		],
 		"modmenu": [
-			"aurick.opsec.mod.config.OpsecModMenuIntegration"
+			"io.github.dimaniojk.nofingerprint.config.NoFingerprintModMenuIntegration"
 		],
 		"mixinsquared": [
-			"aurick.opsec.mod.mixin.MeteorMixinCanceller"
+			"io.github.dimaniojk.nofingerprint.mixin.MeteorMixinCanceller"
 		]
 	},
 	"mixins": [
 		{
-			"config": "opsec.client.mixins.json",
+			"config": "nofingerprint.client.mixins.json",
 			"environment": "client"
 		}
 	],

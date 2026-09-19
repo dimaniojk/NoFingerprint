@@ -55,7 +55,7 @@ group = property("maven_group")
 version = property("mod_version")
 
 base {
-    archivesName = "opsec-$version_suffix"
+    archivesName = "nofingerprint-$version_suffix"
 }
 
 tasks.named("jar") {
@@ -70,7 +70,7 @@ if (remapJarTask != null) {
 loom {
     splitEnvironmentSourceSets()
     mods {
-        create("opsec") {
+        create("nofingerprint") {
             sourceSet(sourceSets.main)
             sourceSet(sourceSets.client)
         }
@@ -78,7 +78,7 @@ loom {
     if (!isUnobfuscated) {
         mixin {
             useLegacyMixinAp = true
-            defaultRefmapName = "opsec.refmap.json"
+            defaultRefmapName = "nofingerprint.refmap.json"
         }
     }
 }
@@ -138,7 +138,7 @@ tasks.withType(ProcessResources).configureEach {
     inputs.property("java_version", javaVersion.toString())
     inputs.property("known_packs_mixin_entry", knownPacksMixinEntry)
     inputs.property("payload_type_registry_mixin_entry", payloadTypeRegistryMixinEntry)
-    filesMatching(["fabric.mod.json", "opsec.client.mixins.json"]) {
+    filesMatching(["fabric.mod.json", "nofingerprint.client.mixins.json"]) {
         expand(
             "version": project.version,
             "minecraft_version_range": minecraft_version_range,
@@ -169,7 +169,7 @@ tasks.jar {
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            artifactId = "opsec-$minecraft_version"
+            artifactId = "nofingerprint-$minecraft_version"
             from(components.java)
         }
     }

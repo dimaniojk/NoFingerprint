@@ -1,0 +1,399 @@
+package io.github.dimaniojk.nofingerprint.accounts;
+
+import io.github.dimaniojk.nofingerprint.NoFingerprint;
+import io.github.dimaniojk.nofingerprint.config.ConfigFiles;
+import io.github.dimaniojk.nofingerprint.config.NoFingerprintConstants;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Manages saved Minecraft accounts for NoFingerprint.
+ * Handles persistence to nofingerprint-accounts.json in the config directory.
+ */
+public class AccountManager {
+    
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Path ACCOUNTS_PATH = ConfigFiles.resolveAndMigrate(
+            ConfigFiles.currentAccounts(),
+            ConfigFiles.LEGACY_ACCOUNTS_NAME,
+            "saved accounts"
+    );
+    
+    private static volatile AccountManager INSTANCE;
+    private static final Object LOCK = new Object();
+    private static final ExecutorService REFRESH_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "NoFingerprint-Account-Refresh");
+        t.setDaemon(true);
+        return t;
+    });
+
+    private final List<Account> accounts = new CopyOnWriteArrayList<>();
+    private String activeAccountUuid = null;
+
+    // Store the original session info for logout
+    private Account originalAccount = null;
+
+    // Prevent concurrent refresh operations using atomic compare-and-set
+    private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
+    
+    private AccountManager() {
+        load();
+        captureOriginalAccount();
+    }
+    
+    private void captureOriginalAccount() {
+        User user = Minecraft.getInstance().getUser();
+        if (user != null) {
+            originalAccount = new SessionAccount(
+                    user.getAccessToken(),
+                    user.getName(),
+                    user.getProfileId().toString()
+            );
+            NoFingerprint.LOGGER.debug("[NoFingerprint] Captured original account: {}", user.getName());
+        }
+    }
+    
+    public static AccountManager getInstance() {
+        if (INSTANCE == null) {
+            synchronized (LOCK) {
+                if (INSTANCE == null) {
+                    INSTANCE = new AccountManager();
+                }
+            }
+        }
+        return INSTANCE;
+    }
+    
+    /**
+     * Add a new account to the manager.
+     * Will not add duplicates (based on UUID).
+     */
+    public void add(Account account) {
+        if (account == null || !account.hasValidInfo()) {
+            NoFingerprint.LOGGER.warn("[NoFingerprint] Cannot add invalid account");
+            return;
+        }
+        
+        // Remove existing account with same UUID
+        accounts.removeIf(a -> a.getUuid().equals(account.getUuid()));
+        accounts.add(account);
+        save();
+        
+        NoFingerprint.LOGGER.info("[NoFingerprint] Added account: {} ({})", account.getUsername(), account.getUuid());
+    }
+    
+    /**
+     * Remove an account from the manager.
+     * If the removed account was currently logged in, automatically logs out to original account.
+     */
+    public void remove(Account account) {
+        if (account == null) return;
+        
+        boolean wasActive = account.getUuid().equals(activeAccountUuid);
+        
+        if (accounts.removeIf(a -> a.getUuid().equals(account.getUuid()))) {
+            // If the removed account was active, logout to original
+            if (wasActive) {
+                logout();
+            }
+            save();
+            NoFingerprint.LOGGER.info("[NoFingerprint] Removed account: {} ({})", account.getUsername(), account.getUuid());
+        }
+    }
+    
+    /**
+     * Get all saved accounts.
+     */
+    public List<Account> getAccounts() {
+        return Collections.unmodifiableList(accounts);
+    }
+    
+    /**
+     * Get account by UUID.
+     */
+    public Optional<Account> getByUuid(String uuid) {
+        if (uuid == null) return Optional.empty();
+        return accounts.stream()
+                .filter(a -> uuid.equals(a.getUuid()))
+                .findFirst();
+    }
+    
+    /**
+     * Get the currently active account UUID.
+     */
+    public String getActiveAccountUuid() {
+        return activeAccountUuid;
+    }
+    
+    /**
+     * Set the active account UUID.
+     */
+    public void setActiveAccountUuid(String uuid) {
+        this.activeAccountUuid = uuid;
+        save();
+    }
+    
+    /**
+     * Check if an account is the currently active one.
+     */
+    public boolean isActive(Account account) {
+        if (account == null || activeAccountUuid == null) return false;
+        return activeAccountUuid.equals(account.getUuid());
+    }
+    
+    /**
+     * Get the number of saved accounts.
+     */
+    public int size() {
+        return accounts.size();
+    }
+    
+    /**
+     * Check if we're logged into a non-original account.
+     */
+    public boolean isLoggedIntoAltAccount() {
+        return activeAccountUuid != null;
+    }
+    
+    /**
+     * Logout to the original account.
+     */
+    public boolean logout() {
+        if (originalAccount == null) {
+            NoFingerprint.LOGGER.warn("[NoFingerprint] Cannot logout: no original account captured");
+            return false;
+        }
+        
+        if (originalAccount.login()) {
+            activeAccountUuid = null;
+            save();
+            NoFingerprint.LOGGER.info("[NoFingerprint] Logged out to original account: {}", originalAccount.getUsername());
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Export accounts to a JSON string.
+     */
+    public String exportToJson() {
+        JsonObject json = new JsonObject();
+        JsonArray accountsArray = new JsonArray();
+        for (Account account : accounts) {
+            accountsArray.add(account.toJson());
+        }
+        json.add("accounts", accountsArray);
+        return GSON.toJson(json);
+    }
+
+    /**
+     * Import accounts from a JSON string.
+     * @return number of accounts imported
+     */
+    public int importFromJson(String jsonContent) {
+        int imported = 0;
+        try {
+            JsonObject json = JsonParser.parseString(jsonContent).getAsJsonObject();
+            if (json.has("accounts")) {
+                JsonArray accountsArray = json.getAsJsonArray("accounts");
+                for (int i = 0; i < accountsArray.size(); i++) {
+                    try {
+                        JsonObject accountJson = accountsArray.get(i).getAsJsonObject();
+                        Account account = Account.fromJson(accountJson);
+                        if (account.hasValidInfo()) {
+                            // Don't add duplicates
+                            boolean exists = accounts.stream()
+                                    .anyMatch(a -> a.getUuid().equals(account.getUuid()));
+                            if (!exists) {
+                                accounts.add(account);
+                                imported++;
+                            }
+                        }
+                    } catch (Exception e) {
+                        NoFingerprint.LOGGER.warn("[NoFingerprint] Failed to import account at index {}: {}", i, e.getMessage());
+                    }
+                }
+            }
+            if (imported > 0) {
+                save();
+                NoFingerprint.LOGGER.info("[NoFingerprint] Imported {} accounts", imported);
+            }
+        } catch (Exception e) {
+            NoFingerprint.LOGGER.error("[NoFingerprint] Failed to parse import JSON: {}", e.getMessage());
+        }
+        return imported;
+    }
+    
+    /**
+     * Check if a refresh operation is in progress.
+     */
+    public boolean isRefreshing() {
+        return isRefreshing.get();
+    }
+    
+    /**
+     * Refresh/revalidate all accounts.
+     * Accounts with expired or invalid tokens will be marked as invalid.
+     * Rate-limited accounts keep their previous validity state.
+     * @param callback Called on main thread when complete with (valid, invalid) counts
+     */
+    public void refreshAllAccounts(java.util.function.BiConsumer<Integer, Integer> callback) {
+        // Use atomic compare-and-set to prevent concurrent refresh operations
+        if (!isRefreshing.compareAndSet(false, true)) {
+            NoFingerprint.LOGGER.warn("[NoFingerprint] Refresh already in progress, ignoring request");
+            return;
+        }
+        
+        REFRESH_EXECUTOR.execute(() -> {
+            try {
+                int valid = 0;
+                int invalid = 0;
+                int skipped = 0;
+                
+                for (int i = 0; i < accounts.size(); i++) {
+                    Account account = accounts.get(i);
+
+                    // Cracked accounts are always valid, skip validation
+                    if (account.isCracked()) {
+                        valid++;
+                        continue;
+                    }
+
+                    // Add delay between requests to avoid rate limiting (except first)
+                    if (i > 0) {
+                        try {
+                            Thread.sleep(NoFingerprintConstants.Retry.ACCOUNT_REFRESH_DELAY_MS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+
+                    SessionAccount.ValidationResult result = ((SessionAccount) account).revalidateWithResult();
+                    switch (result) {
+                        case VALID -> valid++;
+                        case INVALID -> invalid++;
+                        case RATE_LIMITED, ERROR -> {
+                            skipped++;
+                            // Keep previous validity state, don't change it
+                        }
+                    }
+                }
+                
+                save();
+                
+                final int v = valid;
+                final int inv = invalid;
+                final int sk = skipped;
+                
+                if (sk > 0) {
+                    NoFingerprint.LOGGER.info("[NoFingerprint] Refreshed accounts: {} valid, {} invalid, {} skipped (rate limited)", v, inv, sk);
+                } else {
+                    NoFingerprint.LOGGER.info("[NoFingerprint] Refreshed accounts: {} valid, {} invalid", v, inv);
+                }
+                
+                if (callback != null) {
+                    net.minecraft.client.Minecraft.getInstance().execute(() -> callback.accept(v, inv));
+                }
+            } finally {
+                isRefreshing.set(false);
+            }
+        });
+    }
+    
+    /**
+     * Load accounts from disk.
+     */
+    public void load() {
+        if (!Files.exists(ACCOUNTS_PATH)) {
+            NoFingerprint.LOGGER.debug("[NoFingerprint] No accounts file found, starting fresh");
+            return;
+        }
+        
+        try {
+            String content = Files.readString(ACCOUNTS_PATH);
+            if (content == null || content.trim().isEmpty()) {
+                return;
+            }
+            
+            JsonObject json = JsonParser.parseString(content).getAsJsonObject();
+            
+            accounts.clear();
+            
+            if (json.has("accounts")) {
+                JsonArray accountsArray = json.getAsJsonArray("accounts");
+                for (int i = 0; i < accountsArray.size(); i++) {
+                    try {
+                        JsonObject accountJson = accountsArray.get(i).getAsJsonObject();
+                        Account account = Account.fromJson(accountJson);
+                        if (account.hasValidInfo()) {
+                            accounts.add(account);
+                        }
+                    } catch (Exception e) {
+                        NoFingerprint.LOGGER.warn("[NoFingerprint] Failed to load account at index {}: {}", i, e.getMessage());
+                    }
+                }
+            }
+            
+            if (json.has("activeAccountUuid")) {
+                activeAccountUuid = json.get("activeAccountUuid").getAsString();
+                if (activeAccountUuid.isEmpty()) {
+                    activeAccountUuid = null;
+                }
+            }
+            
+            NoFingerprint.LOGGER.info("[NoFingerprint] Loaded {} accounts", accounts.size());
+            
+        } catch (IOException e) {
+            NoFingerprint.LOGGER.error("[NoFingerprint] Failed to load accounts: {}", e.getMessage());
+        } catch (Exception e) {
+            NoFingerprint.LOGGER.error("[NoFingerprint] Failed to parse accounts file: {}", e.getMessage());
+        }
+    }
+    
+    /**
+     * Save accounts to disk.
+     */
+    public void save() {
+        try {
+            JsonObject json = new JsonObject();
+            
+            JsonArray accountsArray = new JsonArray();
+            for (Account account : accounts) {
+                accountsArray.add(account.toJson());
+            }
+            json.add("accounts", accountsArray);
+
+            json.addProperty("activeAccountUuid", activeAccountUuid != null ? activeAccountUuid : "");
+            
+            // Write atomically using temp file
+            Files.createDirectories(ACCOUNTS_PATH.getParent());
+            Path tempFile = ACCOUNTS_PATH.resolveSibling(ACCOUNTS_PATH.getFileName() + ".tmp");
+            Files.writeString(tempFile, GSON.toJson(json));
+            Files.move(tempFile, ACCOUNTS_PATH, 
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            
+            NoFingerprint.LOGGER.debug("[NoFingerprint] Saved {} accounts", accounts.size());
+            
+        } catch (IOException e) {
+            NoFingerprint.LOGGER.error("[NoFingerprint] Failed to save accounts: {}", e.getMessage());
+        }
+    }
+}
