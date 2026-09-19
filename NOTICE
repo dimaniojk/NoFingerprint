@@ -1,0 +1,33 @@
+NoFingerprint
+=============
+
+NoFingerprint is based on OpSec by aurickk.
+
+Original project:
+https://github.com/aurickk/OpSec
+
+Original author:
+aurickk (credited in upstream metadata as Aurick)
+
+NoFingerprint continues development independently from the archived
+upstream project. The original author does not endorse this fork.
+
+Copyright (C) 2025-2026 aurickk
+Copyright (C) 2026 dimaniojk (fork modifications)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+The full license text is in the LICENSE file.
+
+Icon note:
+The bundled Mod Menu / Fabric icon is the upstream OpSec "OP" mark. It
+does not contain the word "OpSec", but it is still upstream branding and
+should be replaced with an original NoFingerprint icon in a later change.
+Do not treat the current icon as a finished NoFingerprint logo.
